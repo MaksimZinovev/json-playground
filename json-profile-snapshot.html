@@ -861,6 +861,15 @@
             return { types, total, percentages: {} };
         }
 
+        function isEmpty(value) {
+            // null, "", [], {} are considered empty
+            if (value === null) return true;
+            if (value === '') return true;
+            if (Array.isArray(value) && value.length === 0) return true;
+            if (typeof value === 'object' && value !== null && Object.keys(value).length === 0) return true;
+            return false;
+        }
+
         function analyzeNulls(json, maxDepth = 10) {
             const nullPaths = [];
 
@@ -892,6 +901,88 @@
 
             findNulls(json);
             return nullPaths;
+        }
+
+        function computeNullSignature(json, path = '$', depth = 0, maxDepth = 10) {
+            if (depth > maxDepth) return {};
+
+            const signatures = {};
+            const type = getType(json);
+
+            function traverse(value, currentPath, currentDepth) {
+                if (currentDepth > maxDepth) return;
+
+                const valType = getType(value);
+
+                if (valType === 'object' && value !== null) {
+                    // Compute null-signature for this object
+                    let nullCount = 0;
+                    let valueCount = 0;
+
+                    Object.entries(value).forEach(([key, val]) => {
+                        if (isEmpty(val)) {
+                            nullCount++;
+                        } else {
+                            valueCount++;
+                        }
+                    });
+
+                    signatures[currentPath] = {
+                        null: nullCount,
+                        value: valueCount
+                    };
+
+                    // Recurse into nested objects/arrays
+                    Object.entries(value).forEach(([key, val]) => {
+                        const childPath = currentPath === '$' ? `$.${key}` : `${currentPath}.${key}`;
+                        traverse(val, childPath, currentDepth + 1);
+                    });
+                } else if (valType === 'array') {
+                    // For arrays, aggregate across all items
+                    let nullCount = 0;
+                    let valueCount = 0;
+                    const keySignatures = {}; // Track per-key signatures for object arrays
+
+                    value.forEach((item, index) => {
+                        if (isEmpty(item)) {
+                            nullCount++;
+                        } else {
+                            valueCount++;
+                        }
+
+                        // If array contains objects, track key-level signatures
+                        if (getType(item) === 'object' && item !== null) {
+                            Object.keys(item).forEach(key => {
+                                if (!keySignatures[key]) {
+                                    keySignatures[key] = { null: 0, value: 0 };
+                                }
+                                if (isEmpty(item[key])) {
+                                    keySignatures[key].null++;
+                                } else {
+                                    keySignatures[key].value++;
+                                }
+                            });
+                        }
+
+                        // Also recurse into nested structures
+                        const itemPath = `${currentPath}[${index}]`;
+                        traverse(item, itemPath, currentDepth + 1);
+                    });
+
+                    signatures[currentPath] = {
+                        null: nullCount,
+                        value: valueCount
+                    };
+
+                    // Add per-key signatures for uniform object arrays
+                    if (Object.keys(keySignatures).length > 0) {
+                        signatures[`${currentPath}#keys`] = keySignatures;
+                    }
+                }
+            }
+
+            traverse(json, path, depth);
+            return signatures;
         }
 
         function analyzePatterns(json, maxDepth = 10, sampleSize = 10) {
@@ -1225,7 +1316,7 @@
             elements.patternSection.innerHTML = html;
         }
 
-        function generatePromptOutput(snapshot, structure, types, nulls, patterns, schema) {
+        function generatePromptOutput(snapshot, structure, types, nulls, nullSignature, patterns, schema) {
             let output = '';
 
             if (state.outputFormat === 'visual-tree') {
@@ -1301,7 +1392,7 @@ ${JSON.stringify(schema, null, 2)}
     "totalValues": ${types?.total || 0}
   },
   "types": ${JSON.stringify(types?.types || {}, null, 2)},
-  "paths": ${JSON.stringify((structure?.paths || []).slice(0, 100), null, 2)}
+  "null-signature": ${JSON.stringify(nullSignature || {}, null, 2)}
 }
 \`\`\`
 `;
@@ -1331,10 +1422,11 @@ ${JSON.stringify(schema, null, 2)}
             const structure = analyzeStructure(json, '$', 0, state.depth);
             const types = analyzeTypes(json, state.depth);
             const nulls = state.showNulls ? analyzeNulls(json, state.depth) : [];
+            const nullSignature = computeNullSignature(json, '$', 0, state.depth);
             const patterns = state.detectPatterns ? analyzePatterns(json, state.depth, state.sampleSize) : null;
             const schema = inferSchema(json, '$', 0, state.depth);
 
-            state.snapshot = { structure, types, nulls, patterns, schema };
+            state.snapshot = { structure, types, nulls, nullSignature, patterns, schema };
 
             // Render preview
             renderStats(types, structure);
@@ -1346,7 +1438,7 @@ ${JSON.stringify(schema, null, 2)}
             elements.previewContent.style.display = 'block';
 
             // Generate output
-            const output = generatePromptOutput(state.snapshot, structure, types, nulls, patterns, schema);
+            const output = generatePromptOutput(state.snapshot, structure, types, nulls, nullSignature, patterns, schema);
             elements.outputText.textContent = output;
 
             elements.outputEmpty.style.display = 'none';
