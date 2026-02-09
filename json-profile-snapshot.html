@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Profile Snapshot Playground</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #252525;
+            --bg-tertiary: #2d2d2d;
+            --border: #3a3a3a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent: #7c4dff;
+            --accent-hover: #9d75ff;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --error: #f44336;
+            --type-object: #7c4dff;
+            --type-array: #00bcd4;
+            --type-string: #4caf50;
+            --type-number: #ff9800;
+            --type-boolean: #e91e63;
+            --type-null: #9e9e9e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            grid-template-rows: 1fr 1fr;
+            height: 100vh;
+            gap: 1px;
+            background: var(--border);
+        }
+
+        .panel {
+            background: var(--bg-secondary);
+            overflow: auto;
+            padding: 16px;
+        }
+
+        .left-panel {
+            grid-row: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .right-top {
+            grid-row: 1;
+        }
+
+        .right-bottom {
+            grid-row: 2;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--accent);
+        }
+
+        h2 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h3 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .section {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            padding: 10px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-btn {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-upload-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .sample-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .sample-btn {
+            padding: 4px 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sample-btn:hover {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider-value {
+            font-size: 0.75rem;
+            color: var(--accent);
+            min-width: 30px;
+            text-align: right;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .toggle-row input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+        }
+
+        .toggle-row label {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .radio-option input[type="radio"] {
+            accent-color: var(--accent);
+        }
+
+        .radio-option label {
+            margin: 0;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        .preset-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .preset-btn {
+            padding: 6px 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .preset-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .analyze-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .analyze-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .tree-container {
+            margin-top: 16px;
+        }
+
+        .tree-node {
+            margin-left: 16px;
+            padding: 4px 0;
+        }
+
+        .tree-node-root {
+            margin-left: 0;
+        }
+
+        .tree-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .tree-header:hover {
+            background: var(--border);
+        }
+
+        .tree-expander {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            transition: transform 0.2s;
+        }
+
+        .tree-expander.expanded {
+            transform: rotate(90deg);
+        }
+
+        .tree-expander.hidden {
+            visibility: hidden;
+        }
+
+        .tree-key {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .tree-badges {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-type { background: var(--type-object); }
+        .badge-type.object { background: var(--type-object); }
+        .badge-type.array { background: var(--type-array); }
+        .badge-type.string { background: var(--type-string); }
+        .badge-type.number { background: var(--type-number); }
+        .badge-type.boolean { background: var(--type-boolean); }
+        .badge-type.null { background: var(--type-null); }
+
+        .badge-count {
+            background: var(--border);
+            color: var(--text-secondary);
+        }
+
+        .badge-null {
+            background: var(--type-null);
+            color: var(--bg-primary);
+        }
+
+        .tree-children {
+            margin-left: 20px;
+            display: none;
+        }
+
+        .tree-children.visible {
+            display: block;
+        }
+
+        .type-bar {
+            display: flex;
+            height: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .type-bar-segment {
+            height: 100%;
+        }
+
+        .pattern-section {
+            margin-top: 16px;
+        }
+
+        .pattern-item {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+
+        .pattern-path {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .pattern-details {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .output-container {
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 8px 16px;
+            background: var(--accent);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .output-content {
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: calc(100vh / 2 - 80px);
+            overflow: auto;
+        }
+
+        .error-message {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid var(--error);
+            border-radius: 6px;
+            padding: 12px;
+            color: var(--error);
+            font-size: 0.8rem;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 900px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            .left-panel {
+                grid-row: 1;
+            }
+            .right-top {
+                grid-row: 2;
+            }
+            .right-bottom {
+                grid-row: 3;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Left Panel: Controls -->
+        <div class="panel left-panel">
+            <h1>JSON Profile Snapshot</h1>
+            <p style="font-size: 0.8rem; color: var(--text-secondary);">Generate machine-readable snapshots and visual structure maps for JSON files</p>
+
+            <!-- Source Section -->
+            <div class="section">
+                <h2>Source</h2>
+                <textarea id="jsonInput" placeholder="Paste your JSON here..."></textarea>
+                <label for="fileInput" class="file-upload-btn">Upload JSON File</label>
+                <input type="file" id="fileInput" accept=".json">
+                <div class="sample-buttons">
+                    <button class="sample-btn" data-sample="github">GitHub Issues</button>
+                    <button class="sample-btn" data-sample="pokemon">Pokemon API</button>
+                    <button class="sample-btn" data-sample="products">Products</button>
+                </div>
+            </div>
+
+            <!-- Presets -->
+            <div class="section">
+                <h2>Presets</h2>
+                <div class="preset-buttons">
+                    <button class="preset-btn" data-preset="quick">Quick Overview</button>
+                    <button class="preset-btn" data-preset="deep">Deep Analysis</button>
+                    <button class="preset-btn" data-preset="schema">Schema Extraction</button>
+                    <button class="preset-btn" data-preset="compare">Comparison Mode</button>
+                    <button class="preset-btn" data-preset="pattern">Pattern Focus</button>
+                </div>
+            </div>
+
+            <!-- Analysis Options -->
+            <div class="section">
+                <h2>Analysis Options</h2>
+                <div class="control-group">
+                    <label>Traversal Depth</label>
+                    <div class="slider-container">
+                        <input type="range" id="depthSlider" min="1" max="10" value="5">
+                        <span class="slider-value" id="depthValue">5</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Array Sample Size</label>
+                    <div class="slider-container">
+                        <input type="range" id="sampleSlider" min="1" max="100" value="10">
+                        <span class="slider-value" id="sampleValue">10</span>
+                    </div>
+                </div>
+                <div class="toggle-row">
+                    <input type="checkbox" id="showNulls" checked>
+                    <label for="showNulls">Show null analysis</label>
+                </div>
+                <div class="toggle-row">
+                    <input type="checkbox" id="showTypes" checked>
+                    <label for="showTypes">Show type counts</label>
+                </div>
+                <div class="toggle-row">
+                    <input type="checkbox" id="detectPatterns" checked>
+                    <label for="detectPatterns">Detect patterns</label>
+                </div>
+            </div>
+
+            <!-- Output Format -->
+            <div class="section">
+                <h2>Output Format</h2>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" id="formatVisual" name="outputFormat" value="visual-tree" checked>
+                        <label for="formatVisual">Visual Tree</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="formatSchema" name="outputFormat" value="json-schema">
+                        <label for="formatSchema">JSON Schema</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="formatCompare" name="outputFormat" value="comparison">
+                        <label for="formatCompare">Comparison Snapshot</label>
+                    </div>
+                </div>
+            </div>
+
+            <button class="analyze-btn" id="analyzeBtn">Generate Snapshot</button>
+        </div>
+
+        <!-- Right Top: Live Preview -->
+        <div class="panel right-top" id="previewPanel">
+            <div class="empty-state" id="previewEmpty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <p>Load JSON and click "Generate Snapshot" to see the visualization</p>
+            </div>
+            <div id="previewContent" style="display: none;">
+                <h2>Structure Preview</h2>
+                <div class="stats-grid" id="statsGrid"></div>
+                <div class="tree-container" id="treeContainer"></div>
+                <div class="pattern-section" id="patternSection"></div>
+            </div>
+        </div>
+
+        <!-- Right Bottom: Output -->
+        <div class="panel right-bottom" id="outputPanel">
+            <div class="empty-state" id="outputEmpty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6"></polyline>
+                    <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+                <p>Generated output will appear here</p>
+            </div>
+            <div class="output-container" id="outputContent" style="display: none;">
+                <button class="copy-btn" id="copyBtn">Copy to Clipboard</button>
+                <div class="output-content" id="outputText"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample JSON data
+        const samples = {
+            github: [{"url":"https://api.github.com/repos/microsoft/vscode/issues/293853","repository_url":"https://api.github.com/repos/microsoft/vscode","labels_url":"https://api.github.com/repos/microsoft/vscode/issues/293853/labels{/name}","comments_url":"https://api.github.com/repos/microsoft/vscode/issues/293853/comments","events_url":"https://api.github.com/repos/microsoft/vscode/issues/293853/events","html_url":"https://github.com/microsoft/vscode/issues/293853","id":3915938396,"node_id":"I_kwDOAn8RLM7paHpc","number":293853,"title":"error","user":{"login":"Abrahanm7","id":102440005,"node_id":"U_kgDOBhscRQ","avatar_url":"https://avatars.githubusercontent.com/u/102440005?v=4","type":"User"},"labels":[],"state":"closed","locked":false,"assignee":null,"assignees":[],"milestone":null,"comments":1,"created_at":"2026-02-09T11:36:43Z","updated_at":"2026-02-09T11:38:04Z","closed_at":"2026-02-09T11:38:04Z","body":"Bug report","reactions":{"url":"https://api.github.com/repos/microsoft/vscode/issues/293853/reactions","total_count":0,"+1":0,"-1":0,"laugh":0,"hooray":0,"confused":0,"heart":0,"rocket":0,"eyes":0}}],
+            pokemon: {"abilities":[{"ability":{"name":"limber","url":"https://pokeapi.co/api/v2/ability/7/"},"is_hidden":false,"slot":1}],"base_experience":101,"cries":{"latest":"https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/132.ogg"},"forms":[{"name":"ditto","url":"https://pokeapi.co/api/v2/pokemon-form/132/"}],"game_indices":[{"game_index":76,"version":{"name":"red","url":"https://pokeapi.co/api/v2/version/1/"}}],"height":3,"held_items":[],"id":132,"is_default":true,"location_area_encounters":"https://pokeapi.co/api/v2/pokemon/132/encounters","moves":[],"name":"ditto","order":214,"species":{"name":"ditto","url":"https://pokeapi.co/api/v2/pokemon-species/132/"},"sprites":{"back_default":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/132.png","front_default":"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/132.png"},"stats":[{"base_stat":48,"effort":1,"stat":{"name":"hp","url":"https://pokeapi.co/api/v2/stat/1/"}}],"types":[{"slot":1,"type":{"name":"normal","url":"https://pokeapi.co/api/v2/type/1/"}}],"weight":40},
+            products: {"products":[{"id":1,"title":"Essence Mascara Lash Princess","description":"The Essence Mascara Lash Princess is a popular mascara.","category":"beauty","price":9.99,"discountPercentage":10.48,"rating":2.56,"stock":99,"tags":["beauty","mascara"],"brand":"Essence","dimensions":{"width":15.14,"height":13.08,"depth":22.99},"reviews":[{"rating":3,"comment":"Would not recommend!","date":"2025-04-30T09:41:02.053Z","reviewerName":"Eleanor Collins"}],"meta":{"createdAt":"2025-04-30T09:41:02.053Z","updatedAt":"2025-04-30T09:41:02.053Z","barcode":"5784719087687"}}],"total":194,"skip":0,"limit":10}
+        };
+
+        // Presets configuration
+        const presets = {
+            quick: { depth: 3, showNulls: true, showTypes: true, detectPatterns: false, sampleSize: 10, outputFormat: 'visual-tree' },
+            deep: { depth: 8, showNulls: true, showTypes: true, detectPatterns: true, sampleSize: 20, outputFormat: 'visual-tree' },
+            schema: { depth: 5, showNulls: true, showTypes: true, detectPatterns: true, sampleSize: 10, outputFormat: 'json-schema' },
+            compare: { depth: 5, showNulls: true, showTypes: true, detectPatterns: false, sampleSize: 10, outputFormat: 'comparison' },
+            pattern: { depth: 6, showNulls: true, showTypes: true, detectPatterns: true, sampleSize: 15, outputFormat: 'visual-tree' }
+        };
+
+        // State management
+        const state = {
+            jsonInput: '',
+            depth: 5,
+            showNulls: true,
+            showTypes: true,
+            detectPatterns: true,
+            sampleSize: 10,
+            outputFormat: 'visual-tree',
+            snapshot: null,
+            error: null
+        };
+
+        // DOM Elements
+        const elements = {
+            jsonInput: document.getElementById('jsonInput'),
+            fileInput: document.getElementById('fileInput'),
+            depthSlider: document.getElementById('depthSlider'),
+            depthValue: document.getElementById('depthValue'),
+            sampleSlider: document.getElementById('sampleSlider'),
+            sampleValue: document.getElementById('sampleValue'),
+            showNulls: document.getElementById('showNulls'),
+            showTypes: document.getElementById('showTypes'),
+            detectPatterns: document.getElementById('detectPatterns'),
+            analyzeBtn: document.getElementById('analyzeBtn'),
+            previewEmpty: document.getElementById('previewEmpty'),
+            previewContent: document.getElementById('previewContent'),
+            statsGrid: document.getElementById('statsGrid'),
+            treeContainer: document.getElementById('treeContainer'),
+            patternSection: document.getElementById('patternSection'),
+            outputEmpty: document.getElementById('outputEmpty'),
+            outputContent: document.getElementById('outputContent'),
+            outputText: document.getElementById('outputText'),
+            copyBtn: document.getElementById('copyBtn')
+        };
+
+        // Event Listeners
+        elements.depthSlider.addEventListener('input', (e) => {
+            state.depth = parseInt(e.target.value);
+            elements.depthValue.textContent = state.depth;
+        });
+
+        elements.sampleSlider.addEventListener('input', (e) => {
+            state.sampleSize = parseInt(e.target.value);
+            elements.sampleValue.textContent = state.sampleSize;
+        });
+
+        elements.showNulls.addEventListener('change', (e) => state.showNulls = e.target.checked);
+        elements.showTypes.addEventListener('change', (e) => state.showTypes = e.target.checked);
+        elements.detectPatterns.addEventListener('change', (e) => state.detectPatterns = e.target.checked);
+
+        document.querySelectorAll('input[name="outputFormat"]').forEach(radio => {
+            radio.addEventListener('change', (e) => state.outputFormat = e.target.value);
+        });
+
+        document.querySelectorAll('.sample-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sample = btn.dataset.sample;
+                elements.jsonInput.value = JSON.stringify(samples[sample], null, 2);
+                state.jsonInput = elements.jsonInput.value;
+            });
+        });
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const preset = presets[btn.dataset.preset];
+
+                // Update state
+                state.depth = preset.depth;
+                state.showNulls = preset.showNulls;
+                state.showTypes = preset.showTypes;
+                state.detectPatterns = preset.detectPatterns;
+                state.sampleSize = preset.sampleSize;
+                state.outputFormat = preset.outputFormat;
+
+                // Update UI
+                elements.depthSlider.value = preset.depth;
+                elements.depthValue.textContent = preset.depth;
+                elements.sampleSlider.value = preset.sampleSize;
+                elements.sampleValue.textContent = preset.sampleSize;
+                elements.showNulls.checked = preset.showNulls;
+                elements.showTypes.checked = preset.showTypes;
+                elements.detectPatterns.checked = preset.detectPatterns;
+                document.querySelector(`input[value="${preset.outputFormat}"]`).checked = true;
+
+                // Update active state
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        elements.fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    elements.jsonInput.value = event.target.result;
+                    state.jsonInput = elements.jsonInput.value;
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        elements.analyzeBtn.addEventListener('click', analyzeJSON);
+
+        elements.copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(elements.outputText.textContent).then(() => {
+                elements.copyBtn.textContent = 'Copied!';
+                setTimeout(() => elements.copyBtn.textContent = 'Copy to Clipboard', 2000);
+            });
+        });
+
+        // Core Analysis Functions
+        function getType(value) {
+            if (value === null) return 'null';
+            if (Array.isArray(value)) return 'array';
+            return typeof value;
+        }
+
+        function analyzeStructure(json, currentPath = '$', depth = 0, maxDepth = 10) {
+            if (depth > maxDepth) return null;
+
+            const result = {
+                paths: [],
+                branches: [],
+                totalKeys: 0,
+                maxDepth: 0,
+                nullCount: 0,
+                totalValues: 0
+            };
+
+            function traverse(value, path, currentDepth) {
+                if (currentDepth > maxDepth) return;
+
+                const type = getType(value);
+                result.maxDepth = Math.max(result.maxDepth, currentDepth);
+                result.totalValues++;
+
+                if (type === 'null') {
+                    result.nullCount++;
+                }
+
+                if (type === 'object' && value !== null) {
+                    const keys = Object.keys(value);
+                    result.totalKeys += keys.length;
+
+                    const branch = {
+                        path: path,
+                        type: 'object',
+                        keyCount: keys.length,
+                        depth: currentDepth,
+                        childTypes: {}
+                    };
+
+                    keys.forEach(key => {
+                        const childPath = path === '$' ? `$.${key}` : `${path}.${key}`;
+                        const childType = getType(value[key]);
+                        result.paths.push(childPath);
+                        branch.childTypes[childType] = (branch.childTypes[childType] || 0) + 1;
+                        traverse(value[key], childPath, currentDepth + 1);
+                    });
+
+                    result.branches.push(branch);
+                } else if (type === 'array') {
+                    const branch = {
+                        path: path,
+                        type: 'array',
+                        length: value.length,
+                        depth: currentDepth,
+                        childTypes: {}
+                    };
+
+                    value.forEach((item, index) => {
+                        const childPath = `${path}[${index}]`;
+                        const childType = getType(item);
+                        branch.childTypes[childType] = (branch.childTypes[childType] || 0) + 1;
+                        traverse(item, childPath, currentDepth + 1);
+                    });
+
+                    result.branches.push(branch);
+                    result.paths.push(path);
+                }
+            }
+
+            traverse(json, currentPath, 0);
+            result.nullRatio = result.totalValues > 0 ? result.nullCount / result.totalValues : 0;
+
+            return result;
+        }
+
+        function analyzeTypes(json, maxDepth = 10) {
+            const types = { object: 0, array: 0, string: 0, number: 0, boolean: 0, null: 0 };
+            let total = 0;
+
+            function countTypes(value, depth = 0) {
+                if (depth > maxDepth) return;
+
+                const type = getType(value);
+                types[type]++;
+                total++;
+
+                if (type === 'object' && value !== null) {
+                    Object.values(value).forEach(v => countTypes(v, depth + 1));
+                } else if (type === 'array') {
+                    value.forEach(v => countTypes(v, depth + 1));
+                }
+            }
+
+            countTypes(json);
+            return { types, total, percentages: {} };
+        }
+
+        function analyzeNulls(json, maxDepth = 10) {
+            const nullPaths = [];
+
+            function findNulls(value, path = '$', depth = 0) {
+                if (depth > maxDepth) return;
+
+                const type = getType(value);
+
+                if (type === 'object' && value !== null) {
+                    Object.entries(value).forEach(([key, val]) => {
+                        const childPath = path === '$' ? `$.${key}` : `${path}.${key}`;
+                        if (val === null) {
+                            nullPaths.push(childPath);
+                        } else {
+                            findNulls(val, childPath, depth + 1);
+                        }
+                    });
+                } else if (type === 'array') {
+                    value.forEach((val, index) => {
+                        const childPath = `${path}[${index}]`;
+                        if (val === null) {
+                            nullPaths.push(childPath);
+                        } else {
+                            findNulls(val, childPath, depth + 1);
+                        }
+                    });
+                }
+            }
+
+            findNulls(json);
+            return nullPaths;
+        }
+
+        function analyzePatterns(json, maxDepth = 10, sampleSize = 10) {
+            const patterns = {
+                uniformArrays: [],
+                enumValues: [],
+                repeatedStructures: []
+            };
+
+            function checkUniformity(arr) {
+                if (arr.length === 0) return true;
+
+                const firstType = getType(arr[0]);
+                if (firstType !== 'object') return arr.every(v => getType(v) === firstType);
+
+                const firstKeys = new Set(Object.keys(arr[0]));
+                return arr.every(item => {
+                    if (getType(item) !== 'object') return false;
+                    const keys = new Set(Object.keys(item));
+                    return keys.size === firstKeys.size && [...keys].every(k => firstKeys.has(k));
+                });
+            }
+
+            function findEnumValues(obj, path = '$', depth = 0) {
+                if (depth > maxDepth) return;
+
+                if (getType(obj) === 'object' && obj !== null) {
+                    Object.entries(obj).forEach(([key, val]) => {
+                        const childPath = path === '$' ? `$.${key}` : `${path}.${key}`;
+                        const type = getType(val);
+
+                        // Check for enum-like patterns (strings with limited unique values)
+                        if (type === 'string') {
+                            const strVal = String(val);
+                            if (strVal.length < 50 && /^[a-z_]+$/.test(strVal)) {
+                                patterns.enumValues.push({ path: childPath, value: strVal });
+                            }
+                        } else {
+                            findEnumValues(val, childPath, depth + 1);
+                        }
+                    });
+                } else if (getType(obj) === 'array') {
+                    // Check if array is uniform
+                    const sample = obj.slice(0, sampleSize);
+                    if (checkUniformity(sample)) {
+                        patterns.uniformArrays.push({
+                            path: path,
+                            length: obj.length,
+                            sampleCount: Math.min(sampleSize, obj.length)
+                        });
+                    }
+
+                    obj.forEach((item, index) => {
+                        findEnumValues(item, `${path}[${index}]`, depth + 1);
+                    });
+                }
+            }
+
+            findEnumValues(json);
+            return patterns;
+        }
+
+        function inferSchema(json, path = '$', depth = 0, maxDepth = 10) {
+            if (depth > maxDepth) return {};
+
+            const type = getType(json);
+
+            if (type === 'null') {
+                return { type: ['null'] };
+            }
+
+            if (type === 'boolean') {
+                return { type: 'boolean' };
+            }
+
+            if (type === 'number') {
+                return { type: Number.isInteger(json) ? 'integer' : 'number' };
+            }
+
+            if (type === 'string') {
+                // Check for format patterns
+                if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(json)) {
+                    return { type: 'string', format: 'date-time' };
+                }
+                if (/^https?:\/\//.test(json)) {
+                    return { type: 'string', format: 'uri' };
+                }
+                return { type: 'string' };
+            }
+
+            if (type === 'array') {
+                if (json.length === 0) {
+                    return { type: 'array', items: {} };
+                }
+
+                // Sample first few items to infer item schema
+                const sampleSize = Math.min(json.length, 5);
+                const itemSchemas = json.slice(0, sampleSize).map(item =>
+                    inferSchema(item, `${path}[0]`, depth + 1, maxDepth)
+                );
+
+                // Merge schemas (simplified - just use first)
+                return {
+                    type: 'array',
+                    items: itemSchemas[0] || {},
+                    minItems: json.length,
+                    maxItems: json.length
+                };
+            }
+
+            if (type === 'object') {
+                const properties = {};
+                const required = [];
+
+                Object.entries(json).forEach(([key, val]) => {
+                    const childPath = path === '$' ? `$.${key}` : `${path}.${key}`;
+                    properties[key] = inferSchema(val, childPath, depth + 1, maxDepth);
+                    if (val !== null) required.push(key);
+                });
+
+                return {
+                    type: 'object',
+                    properties,
+                    required: required.length > 0 ? required : undefined
+                };
+            }
+
+            return {};
+        }
+
+        function generateSnapshot(json, options) {
+            return {
+                metadata: {
+                    totalKeys: 0,
+                    maxDepth: 0,
+                    nullCount: 0,
+                    nullRatio: 0
+                },
+                structure: null,
+                types: null,
+                nulls: null,
+                patterns: null,
+                schema: null
+            };
+        }
+
+        // Render Functions
+        function renderStats(stats, structure) {
+            const statsHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${structure?.totalKeys || 0}</div>
+                    <div class="stat-label">Total Keys</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${structure?.maxDepth || 0}</div>
+                    <div class="stat-label">Max Depth</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${structure?.nullRatio ? (structure.nullRatio * 100).toFixed(1) : 0}%</div>
+                    <div class="stat-label">Null Ratio</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats?.total || 0}</div>
+                    <div class="stat-label">Total Values</div>
+                </div>
+            `;
+            elements.statsGrid.innerHTML = statsHTML;
+        }
+
+        function renderTree(data, path = '$', depth = 0) {
+            if (depth > state.depth) return '';
+
+            const type = getType(data);
+            let html = '';
+
+            if (type === 'object' && data !== null) {
+                const keys = Object.keys(data);
+                const nullCount = keys.filter(k => data[k] === null).length;
+                const typeCounts = {};
+
+                keys.forEach(k => {
+                    const t = getType(data[k]);
+                    typeCounts[t] = (typeCounts[t] || 0) + 1;
+                });
+
+                const hasChildren = keys.length > 0;
+                const badges = `
+                    <span class="badge badge-type object">obj</span>
+                    ${state.showTypes ? `<span class="badge badge-count">${keys.length} keys</span>` : ''}
+                    ${state.showNulls && nullCount > 0 ? `<span class="badge badge-null">${nullCount} null</span>` : ''}
+                `;
+
+                html += `
+                    <div class="tree-node ${depth === 0 ? 'tree-node-root' : ''}">
+                        <div class="tree-header" onclick="this.parentElement.querySelector('.tree-children')?.classList.toggle('visible'); this.querySelector('.tree-expander')?.classList.toggle('expanded')">
+                            <span class="tree-expander ${hasChildren ? '' : 'hidden'}">▶</span>
+                            <span class="tree-key">${path}</span>
+                            <div class="tree-badges">${badges}</div>
+                        </div>
+                        <div class="tree-children ${depth === 0 ? 'visible' : ''}">
+                `;
+
+                keys.slice(0, state.sampleSize).forEach(key => {
+                    const childPath = path === '$' ? `$.${key}` : `${path}.${key}`;
+                    html += renderTree(data[key], childPath, depth + 1);
+                });
+
+                if (keys.length > state.sampleSize) {
+                    html += `<div style="color: var(--text-secondary); font-size: 0.75rem; padding: 4px 8px;">... and ${keys.length - state.sampleSize} more keys</div>`;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'array') {
+                const nullCount = data.filter(v => v === null).length;
+                const typeCounts = {};
+
+                data.forEach(v => {
+                    const t = getType(v);
+                    typeCounts[t] = (typeCounts[t] || 0) + 1;
+                });
+
+                const hasChildren = data.length > 0;
+                const badges = `
+                    <span class="badge badge-type array">arr</span>
+                    ${state.showTypes ? `<span class="badge badge-count">${data.length} items</span>` : ''}
+                    ${state.showNulls && nullCount > 0 ? `<span class="badge badge-null">${nullCount} null</span>` : ''}
+                `;
+
+                html += `
+                    <div class="tree-node ${depth === 0 ? 'tree-node-root' : ''}">
+                        <div class="tree-header" onclick="this.parentElement.querySelector('.tree-children')?.classList.toggle('visible'); this.querySelector('.tree-expander')?.classList.toggle('expanded')">
+                            <span class="tree-expander ${hasChildren ? '' : 'hidden'}">▶</span>
+                            <span class="tree-key">${path}</span>
+                            <div class="tree-badges">${badges}</div>
+                        </div>
+                        <div class="tree-children ${depth === 0 ? 'visible' : ''}">
+                `;
+
+                data.slice(0, Math.min(state.sampleSize, data.length)).forEach((item, index) => {
+                    const childPath = `${path}[${index}]`;
+                    html += renderTree(item, childPath, depth + 1);
+                });
+
+                if (data.length > state.sampleSize) {
+                    html += `<div style="color: var(--text-secondary); font-size: 0.75rem; padding: 4px 8px;">... and ${data.length - state.sampleSize} more items</div>`;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            } else {
+                const typeColors = {
+                    string: 'var(--type-string)',
+                    number: 'var(--type-number)',
+                    boolean: 'var(--type-boolean)',
+                    null: 'var(--type-null)'
+                };
+
+                const displayValue = type === 'string' && data.length > 30 ? `"${data.substring(0, 30)}..."` : JSON.stringify(data);
+
+                html += `
+                    <div class="tree-node">
+                        <div class="tree-header">
+                            <span class="tree-expander hidden"></span>
+                            <span class="tree-key">${path}</span>
+                            <div class="tree-badges">
+                                <span class="badge badge-type ${type}" style="background: ${typeColors[type]}">${type}</span>
+                                <span style="color: var(--text-secondary); font-size: 0.7rem; font-family: monospace;">${displayValue}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        function renderPatterns(patterns) {
+            if (!state.detectPatterns || !patterns) {
+                elements.patternSection.innerHTML = '';
+                return;
+            }
+
+            let html = '<h3>Detected Patterns</h3>';
+
+            if (patterns.uniformArrays && patterns.uniformArrays.length > 0) {
+                html += '<h4 style="margin-top: 12px; font-size: 0.8rem; color: var(--text-secondary);">Uniform Arrays</h4>';
+                patterns.uniformArrays.slice(0, 5).forEach(p => {
+                    html += `
+                        <div class="pattern-item">
+                            <div class="pattern-path">${p.path}</div>
+                            <div class="pattern-details">${p.length} items • Uniform structure</div>
+                        </div>
+                    `;
+                });
+            }
+
+            if (patterns.enumValues && patterns.enumValues.length > 0) {
+                // Group by path and count unique values
+                const grouped = {};
+                patterns.enumValues.forEach(p => {
+                    if (!grouped[p.path]) grouped[p.path] = new Set();
+                    grouped[p.path].add(p.value);
+                });
+
+                const enumPaths = Object.entries(grouped)
+                    .filter(([_, vals]) => vals.size > 1 && vals.size < 20)
+                    .slice(0, 5);
+
+                if (enumPaths.length > 0) {
+                    html += '<h4 style="margin-top: 12px; font-size: 0.8rem; color: var(--text-secondary);">Possible Enum Fields</h4>';
+                    enumPaths.forEach(([path, values]) => {
+                        html += `
+                            <div class="pattern-item">
+                                <div class="pattern-path">${path}</div>
+                                <div class="pattern-details">${Array.from(values).slice(0, 5).join(', ')}${values.size > 5 ? '...' : ''} (${values.size} unique)</div>
+                            </div>
+                        `;
+                    });
+                }
+            }
+
+            if (html === '<h3>Detected Patterns</h3>') {
+                html += '<p style="color: var(--text-secondary); font-size: 0.8rem;">No significant patterns detected</p>';
+            }
+
+            elements.patternSection.innerHTML = html;
+        }
+
+        function generatePromptOutput(snapshot, structure, types, nulls, patterns, schema) {
+            let output = '';
+
+            if (state.outputFormat === 'visual-tree') {
+                output = `# JSON Profile Snapshot
+
+## Summary
+- **Total Keys**: ${structure?.totalKeys || 0}
+- **Max Depth**: ${structure?.maxDepth || 0}
+- **Total Values**: ${types?.total || 0}
+- **Null Ratio**: ${structure?.nullRatio ? (structure.nullRatio * 100).toFixed(1) : 0}%
+
+## Type Distribution
+`;
+
+                if (types?.types) {
+                    Object.entries(types.types).forEach(([type, count]) => {
+                        const pct = types.total > 0 ? ((count / types.total) * 100).toFixed(1) : 0;
+                        output += `- **${type}**: ${count} (${pct}%)\n`;
+                    });
+                }
+
+                output += `\n## Structure
+`;
+
+                if (structure?.branches) {
+                    structure.branches.slice(0, 20).forEach(branch => {
+                        const childInfo = Object.entries(branch.childTypes || {})
+                            .map(([t, c]) => `${t}:${c}`)
+                            .join(', ');
+                        output += `- \`${branch.path}\` (${branch.type})`;
+                        if (branch.keyCount) output += ` • ${branch.keyCount} keys`;
+                        if (branch.length) output += ` • ${branch.length} items`;
+                        if (childInfo) output += ` • [${childInfo}]`;
+                        output += '\n';
+                    });
+                }
+
+                if (state.showNulls && nulls?.length > 0) {
+                    output += `\n## Null Fields (${nulls.length} total)\n`;
+                    nulls.slice(0, 20).forEach(path => {
+                        output += `- ${path}\n`;
+                    });
+                    if (nulls.length > 20) {
+                        output += `... and ${nulls.length - 20} more\n`;
+                    }
+                }
+
+                if (state.detectPatterns && patterns?.uniformArrays?.length > 0) {
+                    output += `\n## Uniform Arrays\n`;
+                    patterns.uniformArrays.slice(0, 10).forEach(p => {
+                        output += `- \`${p.path}\` (${p.length} items)\n`;
+                    });
+                }
+
+            } else if (state.outputFormat === 'json-schema') {
+                output = `# JSON Schema (Draft 7)
+
+\`\`\`json
+${JSON.stringify(schema, null, 2)}
+\`\`\`
+`;
+
+            } else if (state.outputFormat === 'comparison') {
+                output = `# Machine-Readable Comparison Snapshot
+
+\`\`\`json
+{
+  "metadata": {
+    "totalKeys": ${structure?.totalKeys || 0},
+    "maxDepth": ${structure?.maxDepth || 0},
+    "nullCount": ${structure?.nullCount || 0},
+    "nullRatio": ${structure?.nullRatio || 0},
+    "totalValues": ${types?.total || 0}
+  },
+  "types": ${JSON.stringify(types?.types || {}, null, 2)},
+  "paths": ${JSON.stringify((structure?.paths || []).slice(0, 100), null, 2)}
+}
+\`\`\`
+`;
+            }
+
+            return output;
+        }
+
+        // Main analysis function
+        function analyzeJSON() {
+            const input = elements.jsonInput.value.trim();
+
+            if (!input) {
+                showError('Please enter JSON data');
+                return;
+            }
+
+            let json;
+            try {
+                json = JSON.parse(input);
+            } catch (e) {
+                showError(`Invalid JSON: ${e.message}`);
+                return;
+            }
+
+            // Perform analysis
+            const structure = analyzeStructure(json, '$', 0, state.depth);
+            const types = analyzeTypes(json, state.depth);
+            const nulls = state.showNulls ? analyzeNulls(json, state.depth) : [];
+            const patterns = state.detectPatterns ? analyzePatterns(json, state.depth, state.sampleSize) : null;
+            const schema = inferSchema(json, '$', 0, state.depth);
+
+            state.snapshot = { structure, types, nulls, patterns, schema };
+
+            // Render preview
+            renderStats(types, structure);
+            elements.treeContainer.innerHTML = renderTree(json);
+            renderPatterns(patterns);
+
+            // Show preview
+            elements.previewEmpty.style.display = 'none';
+            elements.previewContent.style.display = 'block';
+
+            // Generate output
+            const output = generatePromptOutput(state.snapshot, structure, types, nulls, patterns, schema);
+            elements.outputText.textContent = output;
+
+            elements.outputEmpty.style.display = 'none';
+            elements.outputContent.style.display = 'block';
+        }
+
+        function showError(message) {
+            elements.previewContent.style.display = 'none';
+            elements.previewEmpty.style.display = 'flex';
+            elements.previewEmpty.innerHTML = `<div class="error-message">${message}</div>`;
+
+            elements.outputContent.style.display = 'none';
+            elements.outputEmpty.style.display = 'flex';
+        }
+
+        // Initialize
+        elements.jsonInput.value = '';
+    </script>
+</body>
+</html>
