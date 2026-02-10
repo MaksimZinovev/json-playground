@@ -1,8 +1,8 @@
 # JSON Profile Snapshot Playground - Requirements
 
-## Feature: JSON Profile Snapshot Generation
+## 1. Feature: JSON Profile Snapshot Generation
 
-### Scenario: Generate snapshot from JSON input
+### 1.1 Scenario: Generate snapshot from JSON input
   Given a user has loaded a JSON file or pasted JSON content
   When the user clicks "Generate Snapshot"
   Then the system should analyze the JSON structure
@@ -10,23 +10,23 @@
   And show statistics including total keys, max depth, null ratio
   And detect patterns such as uniform arrays and enum fields
 
-### Scenario: Generate snapshot with configurable depth
+### 1.2 Scenario: Generate snapshot with configurable depth
   Given a user has loaded JSON content
   When the user sets the traversal depth slider to a value between 1 and 10
   And the user clicks "Generate Snapshot"
   Then the system should only analyze the JSON up to the specified depth
   And the visualization should reflect the limited depth
 
-### Scenario: Generate snapshot with sample size limit for arrays
+### 1.3 Scenario: Generate snapshot with sample size limit for arrays
   Given a user has loaded JSON content containing large arrays
   When the user sets the array sample size slider
   And the user clicks "Generate Snapshot"
   Then the system should only analyze the specified number of array items
   And the visualization should indicate the total array size
 
-## Feature: Visual Tree Map Visualization
+## 2. Feature: Visual Tree Map Visualization
 
-### Scenario: Display collapsible tree structure
+### 2.1 Scenario: Display collapsible tree structure
   Given a JSON snapshot has been generated
   When the tree visualization is rendered
   Then each object should be displayed as a collapsible node
@@ -35,35 +35,35 @@
   And each node should show count badges (number of keys or items)
   And each node should show null count badges if nulls are present
 
-### Scenario: Expand and collapse tree nodes
+### 2.2 Scenario: Expand and collapse tree nodes
   Given a tree visualization is displayed
   When the user clicks on a tree node header
   Then the node should toggle between expanded and collapsed states
   And child nodes should be shown or hidden accordingly
   And the expander arrow should rotate to indicate state
 
-### Scenario: Display type distribution for nodes
+### 2.3 Scenario: Display type distribution for nodes
   Given a tree visualization is displayed
   When show type counts option is enabled
   Then each node should display the count of each child type
   And a mini type distribution bar should be shown
 
-## Feature: Null-Signature Analysis
+## 3. Feature: Null-Signature Analysis
 
-### Scenario: Compute null-signature for comparison
+### 3.1 Scenario: Compute null-signature for comparison
   Given a user has selected "Comparison Snapshot" output format
   When the snapshot is generated
   Then the system should compute null-signature for each path
   And null-signature should count empty values (null, "", [], {})
   And null-signature should count non-empty values
 
-### Scenario: Null-signature for arrays
-  Given a JSON structure contains an array of objects
+### 3.2 Scenario: Null-signature for arrays
+  Given a JSON structure contains an array of unified objects (same set of keys), non-primitives
   When null-signature is computed
-  Then the array should have a single aggregated null-signature
-  And the aggregation should sum null and value counts across all items
+  Then the array should have a single null-signature
+  And the single null-signature should be represented by signature of the 0-index item
 
-### Scenario: Null-signature for nested objects in arrays
+### 3.3 Scenario: Null-signature for nested objects in arrays
   Given a JSON structure contains an array of objects with nested objects
   When null-signature is computed
   Then the array should have its own null-signature
@@ -82,11 +82,12 @@
 ### Scenario: Heatmap block styling
   Given a heatmap is being rendered
   When a block represents an object
-  Then the block should be a fixed 100px by 100px square
-  And the block should be split vertically into two parts
-  And the top part should show null ratio using grey color
-  And the bottom part should show value ratio using blue color
-  And the height of each part should be proportional to its count
+  Then the block should be a fixed W px by H px square
+  And the block width and height should match the current width of [class="stat-value"] in ./json-profile-snapshot.html
+  And the block should be split horizontally into two parts
+  And the right part should show null ratio using grey color
+  And the left part should show value ratio using blue color
+  And the width of each part should be proportional to its count
 
 ### Scenario: Heatmap block for fully filled objects
   Given an object has zero null values
@@ -102,21 +103,35 @@
 
 ### Scenario: Heatmap block labels and tooltips
   Given a heatmap block is displayed
-  Then the block should show a truncated path label in the center
-  And the block should show a tooltip with exact counts (e.g., "4 null, 1 value")
+  Then the block should show a object name label in the center
+  And the block should show a tooltip with exact counts (e.g. "∅1 ✓20")
 
-### Scenario: Array of objects with simple structure
-  Given a JSON array where each item is a simple object with the same keys
+### Scenario: Root object vs nested object block rendering
+  Given a JSON structure with a root object containing nested non-primitives
+  When the heatmap is rendered
+  Then blocks should be rendered for all non-primitive values (objects, arrays) at any depth
+  And if root contains multiple keys (mix of primitives and non-primitives), root gets a block showing aggregate null ratio
+  And if root contains only non-primitive children, only those children get blocks
+  And nested non-primitives always get their own blocks regardless of root structure
+
+### Scenario: Array of non-unique objects with simple structure
+  Given a JSON array where each item is a non-unique object with the same set of keys
   When the heatmap is rendered
   Then a single block should represent the array
   And no separate blocks should be shown for individual items
 
 ### Scenario: Array of objects with nested objects
-  Given a JSON array where items contain nested objects
+  Given a JSON array where items contain nested non-primitive objects (two objects are uniqu when they have different set of keys)
   When the heatmap is rendered
   Then a block should represent the array itself
   And a block should represent each unique nested object type
-  And blocks should be named using [] notation for array items (e.g., "abilities[].ability")
+  And blocks should be named using [] notation for array items (e.g., "[].ability")
+
+### Scenario: Empty arrays and empty dictionaries
+  Given a JSON structure contains an empty array [] or empty dictionary {}
+  When the heatmap is rendered
+  Then a separate block should be rendered for the empty array or empty dictionary
+  And the block should be 100 percent grey (indicating all null/empty)
 
 ## Feature: Preset Configurations
 
@@ -204,7 +219,9 @@
   Then the output should contain a metadata section with key counts
   And the output should contain a types section with all type counts
   And the output should contain a null-signature section
-  And the null-signature should map paths to null and value counts
+  And null-signatures are outputted only for non-primitives (exclude single keys:  string, number, boolean) 
+  And null-signatures are outputted for objects (dictionaries, arrays) 
+  And the null-signature should map paths to null and value counts (compressed single line json ,e.g. "slot": {"null": 0, "value": 2})
 
 ## Feature: Heatmap and Tree Synchronization
 
@@ -246,9 +263,10 @@
   And the resulting heatmap visibility updates should be logged
 
 
-## Example 1 
+## Example 1
 
-[TODO: explain in 30 words how heat-map null-signature should be rendered for the below json]
+Heatmap shows: `held_items` array block (root has single non-primitive child), `held_items[].item` object block (100% blue, 2 values), `held_items[].version_details[].version` object block (100% blue, 2 values per item).
+Number of blocks: 3
 
 ```json
  {"held_items": [
@@ -279,9 +297,10 @@
 ```
 
 
-## Example 2 
+## Example 2
 
-[TODO: explain in 30 words how heat-map null-signature should be rendered for the below json]
+`user` object block (root has single non-primitive child, 35% grey, 65% blue): 7 empty strings count as nulls (gravatar_id, following_url, starred_url, repos_url, user_view_type, site_admin), 13 non-null values.
+Number of blocks: 1
 
 ```json
 { "user": {
@@ -308,9 +327,10 @@
 ```
 
 
-## Example 3 
+## Example 3
 
-[TODO: explain in 30 words how heat-map null-signature should be rendered for the below json]
+Two blocks: root block (25% grey, 75% blue for 1 null, 3 non-nulls) and `assignees` block (100% grey for empty array).
+Number of blocks: 2
 
 ```json
 {
@@ -324,9 +344,10 @@
 
 
 
-## Example 1 
+## Example 4
 
-[TODO: explain in 30 words how heat-map null-signature should be rendered for the below json]
+Single `sub_issues_summary` block (100% blue): nested object with 3 keys, all non-null (zeros are valid numbers, not empty values).
+Number of blocks: 1
 
 ```json
  {
