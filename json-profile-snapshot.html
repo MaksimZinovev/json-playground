@@ -305,15 +305,14 @@
             text-transform: uppercase;
         }
 
-        .heatmap-container {
+        .heatmap-tree-wrapper {
             display: flex;
-            gap: 8px;
+            gap: 16px;
             margin-bottom: 16px;
-            overflow-x: auto;
-            padding-bottom: 8px;
+            align-items: flex-start;
         }
 
-        .heatmap-column {
+        .heatmap-container {
             display: flex;
             flex-direction: column;
             gap: 6px;
@@ -328,11 +327,13 @@
             overflow: hidden;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
+            flex-shrink: 0;
         }
 
         .heatmap-block:hover {
             transform: scale(1.05);
             box-shadow: 0 4px 12px rgba(124, 77, 255, 0.3);
+            z-index: 10;
         }
 
         .heatmap-block-value {
@@ -384,8 +385,13 @@
             display: none;
         }
 
+        .tree-wrapper {
+            flex: 1;
+            overflow-x: auto;
+        }
+
         .tree-container {
-            margin-top: 16px;
+            /* No margin-top needed, wrapper handles spacing */
         }
 
         .tree-node {
@@ -690,8 +696,12 @@
             <div id="previewContent" style="display: none;">
                 <h2>Structure Preview</h2>
                 <div class="stats-grid" id="statsGrid"></div>
-                <div class="heatmap-container" id="heatmapContainer"></div>
-                <div class="tree-container" id="treeContainer"></div>
+                <div class="heatmap-tree-wrapper">
+                    <div class="heatmap-container" id="heatmapContainer"></div>
+                    <div class="tree-wrapper">
+                        <div class="tree-container" id="treeContainer"></div>
+                    </div>
+                </div>
                 <div class="pattern-section" id="patternSection"></div>
             </div>
         </div>
@@ -1071,36 +1081,113 @@
             console.log('[HEATMAP] Computing object signatures from null-signature');
             const objectSignatures = {};
 
-            // Filter null-signature to only include object paths (not arrays, not primitives)
+            // Helper to get key set of an object (sorted for consistency)
+            function getKeySet(obj) {
+                if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+                return JSON.stringify(Object.keys(obj).sort());
+            }
+
+            // Process each path in nullSignature
             Object.entries(nullSignature).forEach(([path, sig]) => {
-                // Skip #keys entries (they're for array object keys)
+                // Skip #keys entries (they're helper data)
                 if (path.includes('#keys')) {
                     console.log(`[HEATMAP] Skipping #keys entry: ${path}`);
                     return;
                 }
 
-                // Check if this path points to an object
                 const value = getValueAtPath(json, path);
-                if (value && getType(value) === 'object' && !Array.isArray(value)) {
+                if (!value) return;
+
+                const type = getType(value);
+
+                // Case 1: Regular object (not array) - add its signature
+                if (type === 'object' && !Array.isArray(value)) {
                     objectSignatures[path] = sig;
                     console.log(`[HEATMAP] Object signature: ${path}`, sig);
-                } else if (Array.isArray(value) && value.length > 0) {
-                    // For arrays, check if they contain objects (uniform arrays of objects)
-                    const firstItem = value[0];
-                    if (firstItem && getType(firstItem) === 'object') {
-                        // Use the #keys signature if available, otherwise create aggregate
-                        const keysPath = `${path}#keys`;
-                        if (nullSignature[keysPath]) {
-                            // Aggregate all key signatures into one
-                            const aggregated = { null: 0, value: 0 };
-                            Object.values(nullSignature[keysPath]).forEach(keySig => {
-                                aggregated.null += keySig.null;
-                                aggregated.value += keySig.value;
+                }
+                // Case 2: Array - add array signature AND nested object signatures
+                else if (Array.isArray(value) && value.length > 0) {
+                    // Add the array's own signature (aggregating its direct children)
+                    objectSignatures[path] = sig;
+                    console.log(`[HEATMAP] Array signature: ${path}`, sig);
+
+                    // Find unique nested object types within array items
+                    const nestedObjectTypes = new Map(); // keySet -> {path, signature}
+
+                    value.forEach((item, index) => {
+                        if (getType(item) === 'object' && item !== null && !Array.isArray(item)) {
+                            // This is a direct object in array - like forms[0] = {name, url}
+                            const keySet = getKeySet(item);
+                            if (keySet) {
+                                if (!nestedObjectTypes.has(keySet)) {
+                                    // Create entry for this unique object type
+                                    nestedObjectTypes.set(keySet, {
+                                        path: `${path}[*]`,
+                                        null: 0,
+                                        value: 0,
+                                        keys: Object.keys(item)
+                                    });
+                                }
+                            }
+
+                            // Also look for nested objects within this item
+                            Object.entries(item).forEach(([key, val]) => {
+                                if (getType(val) === 'object' && val !== null && !Array.isArray(val)) {
+                                    const nestedKeySet = getKeySet(val);
+                                    if (nestedKeySet) {
+                                        const nestedPath = `${path}[*].${key}`;
+                                        if (!nestedObjectTypes.has(nestedKeySet)) {
+                                            nestedObjectTypes.set(nestedKeySet, {
+                                                path: nestedPath,
+                                                null: 0,
+                                                value: 0,
+                                                keys: Object.keys(val)
+                                            });
+                                        }
+                                    }
+                                }
                             });
-                            objectSignatures[path] = aggregated;
-                            console.log(`[HEATMAP] Array of objects signature: ${path}`, aggregated);
                         }
-                    }
+                    });
+
+                    // Now compute signatures for each unique nested object type
+                    nestedObjectTypes.forEach((objType, keySet) => {
+                        // Aggregate across all array items
+                        value.forEach((item, index) => {
+                            // Find this object type within the item
+                            let targetObj = null;
+
+                            // Check if this is a direct object in array
+                            if (getType(item) === 'object' && item !== null && !Array.isArray(item)) {
+                                const itemKeySet = getKeySet(item);
+                                if (itemKeySet === keySet && objType.path === `${path}[*]`) {
+                                    targetObj = item;
+                                } else {
+                                    // Check nested objects
+                                    const matchKey = objType.path.match(/\.(\w+)$/)?.[1];
+                                    if (matchKey && item[matchKey] && getType(item[matchKey]) === 'object') {
+                                        const nestedKeySet = getKeySet(item[matchKey]);
+                                        if (nestedKeySet === keySet) {
+                                            targetObj = item[matchKey];
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (targetObj) {
+                                Object.values(targetObj).forEach(v => {
+                                    if (isEmpty(v)) {
+                                        objType.null++;
+                                    } else {
+                                        objType.value++;
+                                    }
+                                });
+                            }
+                        });
+
+                        objectSignatures[objType.path] = { null: objType.null, value: objType.value };
+                        console.log(`[HEATMAP] Nested object signature: ${objType.path}`, { null: objType.null, value: objType.value });
+                    });
                 }
             });
 
@@ -1168,7 +1255,7 @@
                 const valuePercent = total > 0 ? (sig.value / total) * 100 : 0;
                 const nullPercent = total > 0 ? (sig.null / total) * 100 : 0;
 
-                // Get short label
+                // Get short label - handle [*] for array items
                 let label = path;
                 if (path.startsWith('$.')) {
                     label = path.substring(2);
@@ -1178,13 +1265,24 @@
                     label = 'root';
                 }
 
+                // Replace [*] with 📋 or similar to indicate array items
+                label = label.replace('[*]', '[]');
+
                 // Truncate long labels
                 if (label.length > 12) {
                     label = label.substring(0, 10) + '..';
                 }
 
+                // For array items [*], link them to the parent array path
+                let linkedPath = path;
+                if (path.includes('[*]')) {
+                    // Convert $.abilities[*].ability to $.abilities for tree linking
+                    linkedPath = path.replace(/\[\*\](\..*)?/, '');
+                }
+
                 hierarchy.push({
                     path,
+                    linkedPath, // The actual tree path to link to
                     label,
                     depth,
                     nullCount: sig.null,
@@ -1208,15 +1306,15 @@
                 return;
             }
 
-            // Create a single column for flush-left layout
-            let html = '<div class="heatmap-column">';
+            // Render blocks directly in container (no column wrapper needed)
+            let html = '';
 
             hierarchy.forEach((block, index) => {
-                console.log(`[HEATMAP] Rendering block ${index}:`, block.path, 'null:', block.nullCount, 'value:', block.valueCount);
+                console.log(`[HEATMAP] Rendering block ${index}:`, block.path, 'linkedPath:', block.linkedPath, 'null:', block.nullCount, 'value:', block.valueCount);
 
                 html += `
-                    <div class="heatmap-block" data-path="${block.path}" data-depth="${block.depth}"
-                         onclick="window.toggleTreePath('${block.path}')">
+                    <div class="heatmap-block" data-path="${block.path}" data-linked-path="${block.linkedPath}" data-depth="${block.depth}"
+                         onclick="window.toggleTreePath('${block.linkedPath}')">
                         <div class="heatmap-block-null" style="height: ${block.nullPercent}%;"></div>
                         <div class="heatmap-block-value" style="height: ${block.valuePercent}%;"></div>
                         <div class="heatmap-block-label">${block.label}</div>
@@ -1225,7 +1323,6 @@
                 `;
             });
 
-            html += '</div>';
             elements.heatmapContainer.innerHTML = html;
             console.log('[HEATMAP] Heatmap rendered');
         }
@@ -1264,20 +1361,45 @@
             console.log('[HEATMAP] Updating heatmap visibility based on tree state');
             const blocks = document.querySelectorAll('.heatmap-block');
 
+            // Get all tree nodes and their expansion state
+            const treeStates = new Map();
+            document.querySelectorAll('[data-tree-path]').forEach(node => {
+                const path = node.dataset.treePath;
+                const isExpanded = node.classList.contains('expanded');
+                treeStates.set(path, isExpanded);
+                console.log(`[HEATMAP] Tree state: ${path} = ${isExpanded}`);
+            });
+
             blocks.forEach(block => {
-                const path = block.dataset.path;
+                const blockPath = block.dataset.linkedPath || block.dataset.path;
                 const depth = parseInt(block.dataset.depth);
+                let visible = true;
 
-                // Find corresponding tree node
-                const treeNode = document.querySelector(`[data-tree-path="${path}"]`);
-                if (treeNode) {
-                    const isExpanded = treeNode.classList.contains('expanded');
-                    const isVisible = isExpanded || depth === 0;
-
-                    // Show/hide child blocks based on parent expansion
-                    block.classList.toggle('hidden', !isVisible);
-                    console.log(`[HEATMAP] Block ${path}: expanded=${isExpanded}, visible=${isVisible}`);
+                // Check if any ancestor is collapsed
+                // For path "$.abilities[*].ability" with linkedPath "$.abilities",
+                // we check if "$.abilities" is expanded
+                if (blockPath !== '$') {
+                    // Get parent path
+                    const parentPath = blockPath.substring(0, blockPath.lastIndexOf('.'));
+                    const arrayMatch = blockPath.match(/^(.+)\[\*\]/);
+                    if (arrayMatch) {
+                        // This is a nested object in array, check the array path
+                        const arrayPath = arrayMatch[1];
+                        const arrayExpanded = treeStates.get(arrayPath);
+                        if (arrayExpanded === false) {
+                            visible = false;
+                        }
+                    } else {
+                        // Check parent expansion
+                        const parentExpanded = treeStates.get(parentPath);
+                        if (parentExpanded === false) {
+                            visible = false;
+                        }
+                    }
                 }
+
+                block.classList.toggle('hidden', !visible);
+                console.log(`[HEATMAP] Block ${blockPath}: visible=${visible}`);
             });
         }
 
