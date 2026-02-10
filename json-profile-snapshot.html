@@ -305,6 +305,85 @@
             text-transform: uppercase;
         }
 
+        .heatmap-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .heatmap-column {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .heatmap-block {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .heatmap-block:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(124, 77, 255, 0.3);
+        }
+
+        .heatmap-block-value {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--accent);
+            transition: height 0.3s ease;
+        }
+
+        .heatmap-block-null {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-tertiary);
+            transition: height 0.3s ease;
+        }
+
+        .heatmap-block-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.65rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 90%;
+            z-index: 1;
+        }
+
+        .heatmap-block-tooltip {
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            z-index: 2;
+        }
+
+        .heatmap-block.hidden {
+            display: none;
+        }
+
         .tree-container {
             margin-top: 16px;
         }
@@ -611,6 +690,7 @@
             <div id="previewContent" style="display: none;">
                 <h2>Structure Preview</h2>
                 <div class="stats-grid" id="statsGrid"></div>
+                <div class="heatmap-container" id="heatmapContainer"></div>
                 <div class="tree-container" id="treeContainer"></div>
                 <div class="pattern-section" id="patternSection"></div>
             </div>
@@ -677,6 +757,7 @@
             previewEmpty: document.getElementById('previewEmpty'),
             previewContent: document.getElementById('previewContent'),
             statsGrid: document.getElementById('statsGrid'),
+            heatmapContainer: document.getElementById('heatmapContainer'),
             treeContainer: document.getElementById('treeContainer'),
             patternSection: document.getElementById('patternSection'),
             outputEmpty: document.getElementById('outputEmpty'),
@@ -985,6 +1066,221 @@
             return signatures;
         }
 
+        // Compute object-only null-signatures for heatmap
+        function computeObjectSignatures(json, nullSignature, maxDepth = 10) {
+            console.log('[HEATMAP] Computing object signatures from null-signature');
+            const objectSignatures = {};
+
+            // Filter null-signature to only include object paths (not arrays, not primitives)
+            Object.entries(nullSignature).forEach(([path, sig]) => {
+                // Skip #keys entries (they're for array object keys)
+                if (path.includes('#keys')) {
+                    console.log(`[HEATMAP] Skipping #keys entry: ${path}`);
+                    return;
+                }
+
+                // Check if this path points to an object
+                const value = getValueAtPath(json, path);
+                if (value && getType(value) === 'object' && !Array.isArray(value)) {
+                    objectSignatures[path] = sig;
+                    console.log(`[HEATMAP] Object signature: ${path}`, sig);
+                } else if (Array.isArray(value) && value.length > 0) {
+                    // For arrays, check if they contain objects (uniform arrays of objects)
+                    const firstItem = value[0];
+                    if (firstItem && getType(firstItem) === 'object') {
+                        // Use the #keys signature if available, otherwise create aggregate
+                        const keysPath = `${path}#keys`;
+                        if (nullSignature[keysPath]) {
+                            // Aggregate all key signatures into one
+                            const aggregated = { null: 0, value: 0 };
+                            Object.values(nullSignature[keysPath]).forEach(keySig => {
+                                aggregated.null += keySig.null;
+                                aggregated.value += keySig.value;
+                            });
+                            objectSignatures[path] = aggregated;
+                            console.log(`[HEATMAP] Array of objects signature: ${path}`, aggregated);
+                        }
+                    }
+                }
+            });
+
+            console.log('[HEATMAP] Total object signatures:', Object.keys(objectSignatures).length);
+            return objectSignatures;
+        }
+
+        // Helper to get value at JSON path
+        function getValueAtPath(json, path) {
+            console.log('[HEATMAP] Getting value at path:', path);
+
+            // Handle array indices like $[0]
+            const arrayMatch = path.match(/\[([0-9]+)\]$/);
+            if (arrayMatch) {
+                const basePath = path.substring(0, path.indexOf('['));
+                const index = parseInt(arrayMatch[1]);
+                const baseValue = basePath === '$' ? json : getValueAtPath(json, basePath);
+                if (Array.isArray(baseValue) && index < baseValue.length) {
+                    console.log('[HEATMAP] Array value at index', index, ':', baseValue[index]);
+                    return baseValue[index];
+                }
+                return null;
+            }
+
+            // Handle object paths like $.user or $.products[0].name
+            const parts = path.replace('$', '').split('.').filter(p => p);
+            let current = json;
+
+            for (const part of parts) {
+                // Handle array access in path like products[0]
+                const arrayMatch = part.match(/([^\[]+)\[(\d+)\]/);
+                if (arrayMatch) {
+                    const key = arrayMatch[1];
+                    const index = parseInt(arrayMatch[2]);
+                    if (current && current[key] && Array.isArray(current[key])) {
+                        current = current[key][index];
+                    } else {
+                        return null;
+                    }
+                } else if (current && current[part] !== undefined) {
+                    current = current[part];
+                } else {
+                    return null;
+                }
+            }
+
+            console.log('[HEATMAP] Value at path:', current);
+            return current;
+        }
+
+        // Build hierarchical structure for heatmap rendering
+        function buildHeatmapHierarchy(json, nullSignature, maxDepth = 10) {
+            console.log('[HEATMAP] Building heatmap hierarchy');
+            const objectSignatures = computeObjectSignatures(json, nullSignature, maxDepth);
+            const hierarchy = [];
+
+            // Group signatures by their depth and sort by path
+            const paths = Object.keys(objectSignatures).sort();
+            console.log('[HEATMAP] Sorted paths:', paths);
+
+            paths.forEach(path => {
+                const sig = objectSignatures[path];
+                const depth = (path.match(/\./g) || []).length + (path.match(/\[/g) || []).length;
+                const total = sig.null + sig.value;
+                const valuePercent = total > 0 ? (sig.value / total) * 100 : 0;
+                const nullPercent = total > 0 ? (sig.null / total) * 100 : 0;
+
+                // Get short label
+                let label = path;
+                if (path.startsWith('$.')) {
+                    label = path.substring(2);
+                } else if (path.startsWith('$[')) {
+                    label = path.substring(2); // [0]...
+                } else if (path === '$') {
+                    label = 'root';
+                }
+
+                // Truncate long labels
+                if (label.length > 12) {
+                    label = label.substring(0, 10) + '..';
+                }
+
+                hierarchy.push({
+                    path,
+                    label,
+                    depth,
+                    nullCount: sig.null,
+                    valueCount: sig.value,
+                    total,
+                    valuePercent,
+                    nullPercent
+                });
+            });
+
+            console.log('[HEATMAP] Hierarchy built:', hierarchy.length, 'blocks');
+            return hierarchy;
+        }
+
+        // Render heatmap blocks
+        function renderHeatmap(hierarchy) {
+            console.log('[HEATMAP] Rendering heatmap with', hierarchy.length, 'blocks');
+
+            if (hierarchy.length === 0) {
+                elements.heatmapContainer.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.75rem;">No object signatures to display</p>';
+                return;
+            }
+
+            // Create a single column for flush-left layout
+            let html = '<div class="heatmap-column">';
+
+            hierarchy.forEach((block, index) => {
+                console.log(`[HEATMAP] Rendering block ${index}:`, block.path, 'null:', block.nullCount, 'value:', block.valueCount);
+
+                html += `
+                    <div class="heatmap-block" data-path="${block.path}" data-depth="${block.depth}"
+                         onclick="window.toggleTreePath('${block.path}')">
+                        <div class="heatmap-block-null" style="height: ${block.nullPercent}%;"></div>
+                        <div class="heatmap-block-value" style="height: ${block.valuePercent}%;"></div>
+                        <div class="heatmap-block-label">${block.label}</div>
+                        <div class="heatmap-block-tooltip">∅${block.nullCount} ✓${block.valueCount}</div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            elements.heatmapContainer.innerHTML = html;
+            console.log('[HEATMAP] Heatmap rendered');
+        }
+
+        // Global function for toggling tree from heatmap
+        window.toggleTreePath = function(path) {
+            console.log('[HEATMAP] Toggle path clicked:', path);
+            const treeHeader = document.querySelector(`[data-tree-path="${path}"]`);
+            if (treeHeader) {
+                treeHeader.click();
+            }
+        };
+
+        // Global function for toggling tree node and updating heatmap
+        window.toggleTreeNode = function(header, path) {
+            console.log('[TREE] Toggle node:', path);
+
+            // Toggle tree expansion
+            const children = header.parentElement.querySelector('.tree-children');
+            const expander = header.querySelector('.tree-expander');
+
+            if (children) {
+                children.classList.toggle('visible');
+            }
+            if (expander) {
+                expander.classList.toggle('expanded');
+            }
+            header.classList.toggle('expanded');
+
+            // Update heatmap visibility
+            updateHeatmapVisibility();
+        };
+
+        // Link tree nodes to heatmap visibility
+        function updateHeatmapVisibility() {
+            console.log('[HEATMAP] Updating heatmap visibility based on tree state');
+            const blocks = document.querySelectorAll('.heatmap-block');
+
+            blocks.forEach(block => {
+                const path = block.dataset.path;
+                const depth = parseInt(block.dataset.depth);
+
+                // Find corresponding tree node
+                const treeNode = document.querySelector(`[data-tree-path="${path}"]`);
+                if (treeNode) {
+                    const isExpanded = treeNode.classList.contains('expanded');
+                    const isVisible = isExpanded || depth === 0;
+
+                    // Show/hide child blocks based on parent expansion
+                    block.classList.toggle('hidden', !isVisible);
+                    console.log(`[HEATMAP] Block ${path}: expanded=${isExpanded}, visible=${isVisible}`);
+                }
+            });
+        }
+
         function analyzePatterns(json, maxDepth = 10, sampleSize = 10) {
             const patterns = {
                 uniformArrays: [],
@@ -1177,8 +1473,9 @@
 
                 html += `
                     <div class="tree-node ${depth === 0 ? 'tree-node-root' : ''}">
-                        <div class="tree-header" onclick="this.parentElement.querySelector('.tree-children')?.classList.toggle('visible'); this.querySelector('.tree-expander')?.classList.toggle('expanded')">
-                            <span class="tree-expander ${hasChildren ? '' : 'hidden'}">▶</span>
+                        <div class="tree-header ${depth === 0 ? 'expanded' : ''}" data-tree-path="${path}"
+                             onclick="window.toggleTreeNode(this, '${path}')">
+                            <span class="tree-expander ${hasChildren ? '' : 'hidden'} ${depth === 0 ? 'expanded' : ''}">▶</span>
                             <span class="tree-key">${path}</span>
                             <div class="tree-badges">${badges}</div>
                         </div>
@@ -1216,8 +1513,9 @@
 
                 html += `
                     <div class="tree-node ${depth === 0 ? 'tree-node-root' : ''}">
-                        <div class="tree-header" onclick="this.parentElement.querySelector('.tree-children')?.classList.toggle('visible'); this.querySelector('.tree-expander')?.classList.toggle('expanded')">
-                            <span class="tree-expander ${hasChildren ? '' : 'hidden'}">▶</span>
+                        <div class="tree-header ${depth === 0 ? 'expanded' : ''}" data-tree-path="${path}"
+                             onclick="window.toggleTreeNode(this, '${path}')">
+                            <span class="tree-expander ${hasChildren ? '' : 'hidden'} ${depth === 0 ? 'expanded' : ''}">▶</span>
                             <span class="tree-key">${path}</span>
                             <div class="tree-badges">${badges}</div>
                         </div>
@@ -1403,6 +1701,7 @@ ${JSON.stringify(schema, null, 2)}
 
         // Main analysis function
         function analyzeJSON() {
+            console.log('[ANALYZE] Starting JSON analysis');
             const input = elements.jsonInput.value.trim();
 
             if (!input) {
@@ -1418,11 +1717,14 @@ ${JSON.stringify(schema, null, 2)}
                 return;
             }
 
+            console.log('[ANALYZE] JSON parsed successfully');
+
             // Perform analysis
             const structure = analyzeStructure(json, '$', 0, state.depth);
             const types = analyzeTypes(json, state.depth);
             const nulls = state.showNulls ? analyzeNulls(json, state.depth) : [];
             const nullSignature = computeNullSignature(json, '$', 0, state.depth);
+            console.log('[ANALYZE] Null signature computed:', Object.keys(nullSignature).length, 'entries');
             const patterns = state.detectPatterns ? analyzePatterns(json, state.depth, state.sampleSize) : null;
             const schema = inferSchema(json, '$', 0, state.depth);
 
@@ -1432,6 +1734,12 @@ ${JSON.stringify(schema, null, 2)}
             renderStats(types, structure);
             elements.treeContainer.innerHTML = renderTree(json);
             renderPatterns(patterns);
+
+            // Render heatmap
+            console.log('[ANALYZE] Building heatmap hierarchy');
+            const heatmapHierarchy = buildHeatmapHierarchy(json, nullSignature, state.depth);
+            console.log('[ANALYZE] Heatmap hierarchy:', heatmapHierarchy.length, 'blocks');
+            renderHeatmap(heatmapHierarchy);
 
             // Show preview
             elements.previewEmpty.style.display = 'none';
@@ -1443,6 +1751,8 @@ ${JSON.stringify(schema, null, 2)}
 
             elements.outputEmpty.style.display = 'none';
             elements.outputContent.style.display = 'block';
+
+            console.log('[ANALYZE] Analysis complete');
         }
 
         function showError(message) {
