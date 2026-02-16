@@ -5,9 +5,19 @@ __MACOSX/
 .LSOverride
 Icon[
 ]
-
+requirements
 # Thumbnails
 ._*
+
+# Sensitive data
+.env
+.env.*
+*.pem
+*.key
+.mcp.json
+
+# Tool caches
+.playwright-cli/
 
 # Files that might appear in the root of a volume
 .DocumentRevisions-V100
